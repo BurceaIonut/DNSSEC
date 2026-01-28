@@ -13,6 +13,8 @@ import dns.rcode
 import dns.flags
 import dns.dnssec
 
+import time
+
 
 @dataclass
 class DnsQueryLog:
@@ -31,7 +33,6 @@ class DnsQueryLog:
     authorityRrsets: int
     additionalRrsets: int
     error: Optional[str] = None
-
 
 @dataclass
 class RrsigInfo:
@@ -83,6 +84,39 @@ class DelegationLink:
 
     dsDenialProof: Optional[DsDenialProof] = None
 
+# validarea criptografica a semnaturilor
+@dataclass
+class SignatureCheck:
+    owner: str              # ex: "com."
+    rrtype: str             # ex: "DS", "NS", "A", "NSEC"
+    signer: str             # din RRSIG
+    keyTag: int
+    algorithm: int
+    inception: int
+    expiration: int
+    timeStatus: str         # OK / EXPIRED / NOT_YET_VALID
+    cryptoStatus: str       # VALID / BOGUS / INDETERMINATE
+    failureReason: Optional[str] = None  # ex: NO_RRSIG, NO_DNSKEY, BAD_SIGNATURE
+
+@dataclass
+class AlgoAssessment:
+    kind: str               # "RRSIG_ALGO" sau "DS_DIGEST"
+    owner: str              # zona la care se referă
+    value: int              # algorithm sau digest type
+    verdict: str            # OK / WEAK / DEPRECATED / UNKNOWN
+    notes: Optional[str] = None
+
+@dataclass
+class DenialProofCheck:
+    owner: str              # numele întrebat (ex: "google.com.")
+    qtype: str              # "DS"
+    proofType: str          # NSEC / NSEC3 / NONE
+    structureStatus: str    # OK / FAIL
+    signatureStatus: str    # VALID / BOGUS / INDETERMINATE
+    failureReason: Optional[str] = None
+
+
+
 
 @dataclass
 class InspectorTrace:
@@ -108,6 +142,10 @@ class InspectorTrace:
     chainVerdict: str = "UNKNOWN"
     chainBreakAt: Optional[str] = None
     notes: List[str] = field(default_factory=list)
+
+    signatureChecks: List[SignatureCheck] = field(default_factory=list)
+    algoAssessments: List[AlgoAssessment] = field(default_factory=list)
+    denialProofChecks: List[DenialProofCheck] = field(default_factory=list)
 
 
 DEFAULT_ROOT_HINTS_V4 = [
@@ -158,6 +196,114 @@ class DnssecChainCollector:
         self.preferIpv4 = preferIpv4
 
         self.nsIpCache: Dict[str, List[str]] = {}
+        self.zoneDnskeyCache: Dict[str, Optional[dns.rrset.RRset]] = {}
+
+    def findRrsigCovering(self, section, owner, covered_rdtype):
+        # caută RRset-ul RRSIG pentru "owner"
+        for rrset in section:
+            if rrset.name == owner and rrset.rdtype == dns.rdatatype.RRSIG:
+                # rrset conține mai multe semnături; filtrăm pe type_covered
+                sigs = [s for s in rrset if s.type_covered == covered_rdtype]
+                if sigs:
+                    return rrset, sigs
+        return None, []
+
+
+    def checkSignatureForRrset(self, rrset, rrsig_rrset, dnskey_rrset, origin, trace):
+        now = int(time.time())
+
+        if not rrsig_rrset:
+            trace.signatureChecks.append(SignatureCheck(
+                owner=str(rrset.name),
+                rrtype=dns.rdatatype.to_text(rrset.rdtype),
+                signer="",
+                keyTag=0,
+                algorithm=0,
+                inception=0,
+                expiration=0,
+                timeStatus="INDETERMINATE",
+                cryptoStatus="INDETERMINATE",
+                failureReason="NO_RRSIG",
+            ))
+            return
+
+        if not dnskey_rrset:
+            # ai semnături, dar n-ai chei
+            for sig in rrsig_rrset:
+                trace.signatureChecks.append(SignatureCheck(
+                    owner=str(rrset.name),
+                    rrtype=dns.rdatatype.to_text(rrset.rdtype),
+                    signer=str(sig.signer),
+                    keyTag=sig.key_tag,
+                    algorithm=sig.algorithm,
+                    inception=sig.inception,
+                    expiration=sig.expiration,
+                    timeStatus="INDETERMINATE",
+                    cryptoStatus="INDETERMINATE",
+                    failureReason="NO_DNSKEY",
+                ))
+            return
+
+        # keys dict pentru dnspython validate()
+        keys = {dnskey_rrset.name: dnskey_rrset}
+
+        for sig in rrsig_rrset:
+            # time window
+            if now < sig.inception:
+                timeStatus = "NOT_YET_VALID"
+            elif now > sig.expiration:
+                timeStatus = "EXPIRED"
+            else:
+                timeStatus = "OK"
+
+            cryptoStatus = "INDETERMINATE"
+            failureReason = None
+
+            # validare crypto doar dacă fereastra e OK (altfel poți marca separat)
+            try:
+                # dnspython validate verifică semnătura pentru TOT rrset-ul
+                dns.dnssec.validate(rrset, rrsig_rrset, keys, origin=origin)
+                cryptoStatus = "VALID"
+            except Exception as e:
+                cryptoStatus = "BOGUS"
+                failureReason = f"BAD_SIGNATURE: {type(e).__name__}"
+
+            trace.signatureChecks.append(SignatureCheck(
+                owner=str(rrset.name),
+                rrtype=dns.rdatatype.to_text(rrset.rdtype),
+                signer=str(sig.signer),
+                keyTag=sig.key_tag,
+                algorithm=sig.algorithm,
+                inception=sig.inception,
+                expiration=sig.expiration,
+                timeStatus=timeStatus,
+                cryptoStatus=cryptoStatus,
+                failureReason=failureReason,
+            ))
+
+    def assessDsDigest(self, digestType: int) -> Tuple[str, str]:
+        if digestType == 1:
+            return "DEPRECATED", "SHA-1 digest is not recommended"
+        if digestType in (2, 4):
+            return "OK", "Modern digest"
+        return "UNKNOWN", "Unknown digest type"
+
+    def assessRrsigAlgorithm(self, algo: int) -> Tuple[str, str]:
+        # minimal, pragmatic
+        if algo in (1, 3, 5, 6, 7):   # exemple de familii vechi (nuanțele exacte depind de standarde)
+            return "DEPRECATED", "Old algorithm"
+        if algo in (8, 10, 13, 14, 15, 16):  # RSA/SHA256, RSA/SHA512, ECDSA, ED25519...
+            return "OK", "Modern algorithm"
+        return "UNKNOWN", "Unrecognized algorithm"
+
+    def getZoneDnskeys(self, zoneName, zoneIps, trace):
+        key = str(zoneName).lower()
+        if key in self.zoneDnskeyCache:
+            return self.zoneDnskeyCache[key]
+        rrset = self.fetchDnskeyFromChild(zoneIps, zoneName, trace)
+        self.zoneDnskeyCache[key] = rrset
+        return rrset
+    
 
     def sendDnsQuery(self, serverIp: str, qname: dns.name.Name, qtype: dns.rdatatype.RdataType, trace: InspectorTrace):
         """
@@ -485,12 +631,66 @@ class DnssecChainCollector:
             if not response:
                 trace.notes.append(f"No response at depth={depth}.")
                 return None
+            
+            # 1) algoritmi slabi pentru RRSIG din Authority (doar assessment)
+            for rrset in response.authority:
+                if rrset.rdtype == dns.rdatatype.RRSIG:
+                    for sig in rrset:
+                        verdict, notes = self.assessRrsigAlgorithm(sig.algorithm)
+                        trace.algoAssessments.append(AlgoAssessment(
+                            kind="RRSIG_ALGO",
+                            owner=str(rrset.name),
+                            value=sig.algorithm,
+                            verdict=verdict,
+                            notes=notes,
+                        ))
+
 
             self.captureRrsigMetadataFromSection(response.authority, trace)
 
+            # 2) SignatureChecks pe Authority: doar time window + status (crypto poate rămâne INDETERMINATE)
+            for rr in response.authority:
+                if rr.rdtype == dns.rdatatype.RRSIG:
+                    continue
+
+                # interesant pentru DNSSEC
+                if rr.rdtype not in (dns.rdatatype.NS, dns.rdatatype.NSEC, dns.rdatatype.NSEC3, dns.rdatatype.DS, dns.rdatatype.SOA):
+                    continue
+
+                rrsig_rrset, sigs = self.findRrsigCovering(response.authority, rr.name, rr.rdtype)
+
+                # Poți pune None ca să obții timeStatus + NO_DNSKEY (INDETERMINATE crypto)
+                self.checkSignatureForRrset(rr, sigs, None, origin=currentParentZone, trace=trace)
+
+
             if response.answer:
                 self.captureRrsigMetadataFromSection(response.answer, trace)
+
+                # 3a) algo assessment pentru RRSIG din Answer
+                for rrset in response.answer:
+                    if rrset.rdtype == dns.rdatatype.RRSIG:
+                        for sig in rrset:
+                            verdict, notes = self.assessRrsigAlgorithm(sig.algorithm)
+                            trace.algoAssessments.append(AlgoAssessment(
+                                kind="RRSIG_ALGO",
+                                owner=str(rrset.name),
+                                value=sig.algorithm,
+                                verdict=verdict,
+                                notes=notes,
+                            ))
+
+                # 3b) signature checks (time window) pentru RRset-uri din Answer
+                for rr in response.answer:
+                    if rr.rdtype == dns.rdatatype.RRSIG:
+                        continue
+
+                    rrsig_rrset, sigs = self.findRrsigCovering(response.answer, rr.name, rr.rdtype)
+
+                    # din nou: crypto rămâne INDETERMINATE fără DNSKEY RRset
+                    self.checkSignatureForRrset(rr, sigs, None, origin=currentParentZone, trace=trace)
+
                 return response
+
 
             referralNs = self.findReferralNsRrset(response)
             if not referralNs:
@@ -517,6 +717,33 @@ class DnssecChainCollector:
                 link = DelegationLink(parentZone=str(currentParentZone), childZone=str(childZone))
 
                 dsList, dsProof = self.fetchDsFromParent(currentAuthoritativeIps, childZone, trace)
+
+                # 4a) Algo assessment pentru DS digest
+                for d in dsList:
+                    verdict, notes = self.assessDsDigest(d.digest_type)
+                    trace.algoAssessments.append(AlgoAssessment(
+                        kind="DS_DIGEST",
+                        owner=str(childZone),
+                        value=d.digest_type,
+                        verdict=verdict,
+                        notes=notes,
+                    ))
+
+                # 4b) Denial proof check (non-existence) dacă nu există DS și ai dovadă
+                if (not dsList) and dsProof is not None:
+                    proofType = "NSEC3" if dsProof.nsec3Rrsets else ("NSEC" if dsProof.nsecRrsets else "NONE")
+                    structureStatus = "OK" if proofType != "NONE" else "FAIL"
+
+                    trace.denialProofChecks.append(DenialProofCheck(
+                        owner=str(childZone),
+                        qtype="DS",
+                        proofType=proofType,
+                        structureStatus=structureStatus,
+                        signatureStatus="INDETERMINATE",  # crypto îl poți deriva ulterior
+                        failureReason=None if structureStatus == "OK" else "NO_NSEC/NSEC3_IN_AUTHORITY"
+                    ))
+
+
                 dnskeyList = self.fetchDnskeyFromChild(additionalBootstrapIps, childZone, trace)
 
                 link.dsRecords = [
