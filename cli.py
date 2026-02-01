@@ -8,23 +8,23 @@ from inspector import DnssecChainCollector, InspectorTrace
 
 EXPLANATIONS = {
     "SECURE_CHAIN_CANDIDATE": {
-        "text": "SECURE (LANȚ SECURIZAT)",
-        "desc": "Lanțul de încredere este valid de la Root (.) până la domeniu.",
+        "text": "SECURE CHAIN",
+        "desc": "The Chain of Trust is valid from Root (.) down to the domain.",
         "severity": "OK"
     },
     "BROKEN_CHAIN": {
-        "text": "BOGUS (LANȚ RUPT)",
-        "desc": "Validarea a eșuat. Semnătură invalidă sau cheie lipsă.",
+        "text": "BOGUS (BROKEN CHAIN)",
+        "desc": "Validation failed. Invalid signature or missing key.",
         "severity": "CRITICAL"
     },
     "INSECURE_DELEGATION": {
-        "text": "INSECURE (NESECURIZAT)",
-        "desc": "Domeniul nu are DNSSEC sau delegarea nu este semnată.",
+        "text": "INSECURE",
+        "desc": "Domain does not use DNSSEC or delegation is unsigned.",
         "severity": "WARN"
     },
     "DS_MISMATCH": {
-        "text": "DS MISMATCH (EROARE CRITICĂ)",
-        "desc": "Amprenta din părinte nu se potrivește cu cheia copilului.",
+        "text": "DS MISMATCH (CRITICAL)",
+        "desc": "Parent DS record does not match the Child DNSKEY.",
         "severity": "CRITICAL"
     }
 }
@@ -32,134 +32,139 @@ EXPLANATIONS = {
 class ReportGenerator:
     @staticmethod
     def get_explanation(key):
-        return EXPLANATIONS.get(key, {"text": key, "desc": "Status necunoscut", "severity": "INFO"})
+        """Returnează explicația și severitatea pe baza verdictului tehnic."""
+        return EXPLANATIONS.get(key, {"text": key, "desc": "Unknown Status", "severity": "INFO"})
 
     @staticmethod
     def to_json(trace: InspectorTrace):
+        """Exportă întregul obiect trace în format JSON."""
         return json.dumps(asdict(trace), indent=2)
 
     @staticmethod
-    def _make_box(lines, color_char=""):
-        """Crează o cutie ASCII în jurul textului."""
+    def _make_header(title):
+        """
+        Creează un antet de secțiune profesional, încadrat cu linii duble.
+        Folosit acum și pentru Titlul Principal.
+        """
         width = 70
-        border_top = "╔" + "═" * (width - 2) + "╗"
-        border_bottom = "╚" + "═" * (width - 2) + "╝"
-        
+        # Caractere box-drawing double
+        top = "╔" + "═" * (width - 2) + "╗"
+        # Formatăm textul cu padding la stânga
+        mid = f"║ {title:<{width-4}} ║"
+        bot = "╚" + "═" * (width - 2) + "╝"
+        return f"\n{top}\n{mid}\n{bot}"
+
+    @staticmethod
+    def _make_verdict_box(lines):
+        """Creează cutia pentru verdict (linii simple)."""
+        width = 70
+        border_top = "┌" + "─" * (width - 2) + "┐"
+        border_bottom = "└" + "─" * (width - 2) + "┘"
         result = [border_top]
         for line in lines:
             stripped = line[:width-4]
-            result.append(f"║ {stripped:<{width-4}} ║")
+            result.append(f"│ {stripped:<{width-4}} │")
         result.append(border_bottom)
         return "\n".join(result)
 
     @staticmethod
     def to_markdown(trace: InspectorTrace):
-        """Generează raportul."""
         verdict_info = ReportGenerator.get_explanation(trace.chainVerdict)
         
-        # Selectăm iconița
-        icon = "✅"
+        icon = "[OK]"
         if trace.chainVerdict == "BROKEN_CHAIN" or "MISMATCH" in trace.chainVerdict:
-            icon = "❌"
+            icon = "[XX]"
         elif trace.chainVerdict == "INSECURE_DELEGATION":
-            icon = "⚠️"
+            icon = "[!!]"
         elif trace.chainVerdict == "UNKNOWN":
-            icon = "❓"
+            icon = "[??]"
 
         output = []
 
-        # --- 1. HEADER & VERDICT ---
-        output.append("\n" + "="*70)
-        output.append(f" DNSSEC INSPECTOR REPORT: {trace.targetName} ({trace.targetType})")
-        output.append("="*70 + "\n")
+        # --- 1. TITLU PRINCIPAL (BOXED) ---
+        title_text = f"DNSSEC INSPECTOR REPORT: {trace.targetName} ({trace.targetType})"
+        output.append(ReportGenerator._make_header(title_text))
         
+        # --- 2. VERDICT (BOXED) ---
         verdict_box = [
-            f"VERDICT FINAL: {icon} {verdict_info['text']}",
-            "-" * 66,
+            f"FINAL VERDICT: {icon} {verdict_info['text']}",
+            "─" * 66,
             f"{verdict_info['desc']}",
             f"Date: {time.strftime('%Y-%m-%d %H:%M:%S')}"
         ]
-        output.append(ReportGenerator._make_box(verdict_box))
-        output.append("\n")
-
-        # --- 2. FINAL DATA (Răspunsul DNS) ---
-        output.append(f" 0. DATE PRIMITE (Answer Section - {trace.targetType})")
-        output.append("-" * 70)
+        output.append(ReportGenerator._make_verdict_box(verdict_box))
+        
+        # --- 3. DATELE FINALE ---
+        output.append(ReportGenerator._make_header("0. RECEIVED DATA"))
+        
         if not trace.finalAnswerRrsets:
-             output.append(f"   [!] Niciun răspuns de tip {trace.targetType} (NODATA) sau eroare.")
+             output.append(f"   [!] No answer for {trace.targetType} (NODATA) or query failed.")
         else:
              for rrset_text in trace.finalAnswerRrsets:
-                 output.append(f"   > {rrset_text}")
-        output.append("\n")
+                 output.append(f"   >> {rrset_text}")
 
-        # --- 3. CHAIN OF TRUST ---
-        output.append(" 1. LANȚUL DE ÎNCREDERE (Chain of Trust)")
-        output.append("-" * 70)
+        # --- 4. LANȚUL DE ÎNCREDERE ---
+        output.append(ReportGenerator._make_header("1. CHAIN OF TRUST (Delegation Path)"))
+        
         if not trace.delegationChain:
-            output.append("   [!] Niciun lanț de delegare detectat.")
+            output.append("   [!] No delegation chain detected.")
         
         for i, link in enumerate(trace.delegationChain, 1):
-            status_icon = "✅ OK" if link.status == "OK" else "❌ FAIL"
-            arrow = "  ⌄" if i < len(trace.delegationChain) else "  "
+            status_tag = "[OK]" if link.status == "OK" else "[XX] FAIL"
             
-            output.append(f"   [{i}] Zona: {link.parentZone:<25} ->  Copil: {link.childZone}")
-            output.append(f"       Status: {status_icon:<10} | Detalii: {link.details}")
+            output.append(f"   #{i:02d} {link.parentZone}")
+            output.append(f"       `-->> {link.childZone:<35} {status_tag}")
+            
+            if link.details and link.status != "OK":
+                 output.append(f"       Note: {link.details}")
+
             if link.dsDenialProof:
-                output.append(f"       Info:   ⚠️ S-a găsit dovadă NSEC/NSEC3 că NU există DS.")
-            output.append(arrow)
+                output.append(f"       Info: [!!] NSEC proof found (No DS).")
+            
+            output.append("") 
 
         if trace.chainBreakAt:
-             output.append(f"\n   ❌ LANȚUL S-A RUPT LA: {trace.chainBreakAt}")
+             output.append(f"   [STOP] CHAIN BROKEN AT: {trace.chainBreakAt}")
 
-        output.append("\n")
-
-        # --- 4. ALGORITHMS (Tabel) ---
-        output.append("  2. IGIENA CRIPTOGRAFICĂ (Algorithms & Digests)")
-        output.append("-" * 70)
+        # --- 5. VERIFICARE CRIPTOGRAFICĂ ---
+        output.append(ReportGenerator._make_header("2. ALGORITHMS & DIGESTS"))
         
-        output.append(f"   {'SCOPE (Zona)':<30} | {'ID':<5} | {'VERDICT':<10} | {'NOTES'}")
-        output.append("   " + "-"*30 + "+-------+------------+-------------------")
+        output.append(f"   {'SCOPE':<25} | {'ALGO':<6} | {'STATUS':<10} | {'NOTES'}")
+        output.append("   " + "-"*25 + "+--------+------------+-------------------")
         
         if not trace.algoAssessments:
-            output.append("   [!] Niciun algoritm evaluat.")
+            output.append("   [!] No algorithms assessed.")
         
         for algo in trace.algoAssessments:
-            v_txt = "✅ OK" if algo.verdict == "OK" else "❌ WEAK"
-            if "DEPRECATED" in algo.verdict: v_txt = "❌ OLD"
+            v_txt = "[OK]" if algo.verdict == "OK" else "[XX] WEAK"
+            if "DEPRECATED" in algo.verdict: v_txt = "[XX] OLD"
             
-            output.append(f"   {algo.owner[:28]:<30} | {str(algo.value):<5} | {v_txt:<10} | {algo.notes}")
+            owner_short = (algo.owner[:22] + '..') if len(algo.owner) > 22 else algo.owner
+            output.append(f"   {owner_short:<25} | {str(algo.value):<6} | {v_txt:<10} | {algo.notes}")
 
-        output.append("\n")
+        # --- 6. SEMNĂTURI ---
+        output.append(ReportGenerator._make_header("3. SIGNATURES (RRSIG)"))
 
-        # --- 5. SIGNATURES (Grouped) ---
-        output.append("  3. VALIDARE SEMNĂTURI (RRSIG)")
-        output.append("-" * 70)
-        
-        issues = [s for s in trace.signatureChecks if s.timeStatus != "OK" or s.cryptoStatus == "BOGUS"]
-        
-        real_errors = [s for s in issues if s.cryptoStatus == "BOGUS" or s.timeStatus == "EXPIRED"]
-        optimize_info = [s for s in issues if s.failureReason in ("NO_DNSKEY", "NO_RRSIG")]
-
-        if not issues:
-            output.append("   ✅ Toate semnăturile verificate sunt VALIDE.")
+        if not trace.signatureChecks:
+            output.append("   [!] No signatures processed.")
         else:
-            if real_errors:
-                output.append("   ❌ ERORI CRITICE (Semnături invalide/expirate):")
-                for sig in real_errors:
-                     output.append(f"      ❌ {sig.owner} ({sig.rrtype}): {sig.failureReason} (Time: {sig.timeStatus})")
-            
-            if optimize_info:
-                output.append(f"\n   ⚠️  INFO: {len(optimize_info)} semnături nu au putut fi verificate complet")
-                output.append("       (Motiv: Lipsă cheie publică pentru resurse externe - Optimizare viteză).")
-                output.append("       Exemple:")
+            for sig in trace.signatureChecks:
+                s_icon = "[!!]"
+                if sig.cryptoStatus == "VALID": s_icon = "[OK]"
+                elif sig.cryptoStatus == "BOGUS": s_icon = "[XX]"
+                
+                key_str = f"Key:{sig.keyTag}" if sig.keyTag else "NoKey"
+                
+                details = sig.cryptoStatus
+                if sig.cryptoStatus == "INDETERMINATE": details = "UNVERIFIED"
+                elif sig.cryptoStatus == "BOGUS": details = f"ERROR: {sig.failureReason}"
+                if sig.timeStatus != "OK": details += f" [TIME: {sig.timeStatus}]"
 
-                for sig in optimize_info[:3]:
-                    reason = sig.failureReason if sig.failureReason else "INDETERMINATE"
-                    output.append(f"      * {sig.owner:<30} ({sig.rrtype}): {reason}")
-                if len(optimize_info) > 3:
-                    output.append(f"      ... și alte {len(optimize_info)-3}.")
+                owner_short = (sig.owner[:28] + '..') if len(sig.owner) > 28 else sig.owner
+                output.append(f"   {s_icon} {owner_short:<30} {key_str:<10} {details}")
 
-        output.append("\n" + "="*70)
+        # --- 7. FOOTER (BOXED) ---
+        output.append(ReportGenerator._make_header("END OF REPORT"))
         return "\n".join(output)
 
 def main():
@@ -172,7 +177,7 @@ def main():
     args = parser.parse_args()
     
     print(f"Inspecting {args.domain}...")
-    collector = DnssecChainCollector(timeoutSeconds=3.0)
+    collector = DnssecChainCollector(timeoutSeconds=3.5)
     trace = collector.inspectDomain(args.domain, args.type)
     
     if args.format == "json":

@@ -1,0 +1,319 @@
+:root {
+  --bg-dark: #0f172a;
+  --bg-card: #1e293b;
+  --bg-hover: #334155;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --accent: #38bdf8;
+  --success: #22c55e;
+  --danger: #ef4444;
+  --warning: #eab308;
+  --border: #334155;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  /* Centrare verticală opțională, dar pentru scroll e mai bine doar sus */
+  display: flex;
+  justify-content: center; 
+}
+
+#root {
+  width: 100%;
+}
+
+.container {
+  max-width: 850px; /* Lățime fixă pentru a crea efectul de coloană centrală */
+  margin: 40px auto; /* Centrare orizontală + spațiu sus/jos */
+  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- HEADER CENTRAT --- */
+.header {
+  display: flex;
+  flex-direction: column; /* Elemente unul sub altul */
+  align-items: center;    /* Centrare orizontală */
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 2rem;
+  margin-bottom: 2rem;
+}
+
+.title h1 { 
+  margin: 0; 
+  font-size: 2.2rem; 
+  letter-spacing: -1px; 
+  background: linear-gradient(to right, #fff, #94a3b8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.subtitle { 
+  color: var(--text-secondary); 
+  font-size: 1rem; 
+  margin-top: 8px; 
+  margin-bottom: 12px;
+}
+
+.badge-pro { 
+  background: rgba(56, 189, 248, 0.15); 
+  color: var(--accent); 
+  padding: 4px 12px; 
+  border-radius: 20px; 
+  font-weight: bold; 
+  font-size: 0.8rem; 
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+/* --- INPUT AREA CENTRAT --- */
+.search-box {
+  background: var(--bg-card);
+  padding: 1.5rem;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 3rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+  /* Asigurăm că inputurile stau centrate dacă ecranul e mic */
+  justify-content: center;
+}
+
+input, select, button {
+  height: 50px; /* Puțin mai înalte pentru aspect modern */
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-dark);
+  color: white;
+  padding: 0 1.2rem;
+  font-size: 1rem;
+}
+
+input { flex: 1; min-width: 200px; }
+input:focus, select:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2); }
+
+button {
+  background: var(--accent);
+  color: var(--bg-dark);
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  padding: 0 2.5rem;
+  transition: all 0.2s;
+}
+button:hover { transform: translateY(-1px); filter: brightness(1.1); }
+button:active { transform: translateY(0); }
+button:disabled { opacity: 0.5; cursor: wait; }
+
+/* --- VERDICT BANNER CENTRAT --- */
+.verdict-banner {
+  padding: 2.5rem;
+  border-radius: 16px;
+  text-align: center;
+  border: 1px solid;
+  margin-bottom: 3rem;
+  background: rgba(30, 41, 59, 0.4);
+  backdrop-filter: blur(10px);
+}
+.verdict-title { 
+  font-size: 2rem; 
+  font-weight: 800; 
+  margin-bottom: 1rem; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  gap: 1rem; 
+}
+
+/* --- TITLURI SECȚIUNI --- */
+.section-title {
+  margin-top: 4rem;
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center; /* Titlurile centrate */
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* --- CHAIN OF TRUST (VERTICAL STACK) --- */
+.chain-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Centrează cardurile în container */
+  width: 100%;
+}
+
+.chain-step {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  position: relative;
+  transition: transform 0.2s;
+  width: 100%; /* Ocupă toată lățimea containerului centrat */
+  box-sizing: border-box;
+}
+
+.chain-step:hover {
+  border-color: var(--text-secondary);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+}
+
+.step-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+}
+
+.step-number {
+  background: var(--bg-dark);
+  color: var(--text-secondary);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 0.8rem;
+  border: 1px solid var(--border);
+}
+
+.zones-flow {
+  font-size: 1.2rem;
+  font-weight: 600;
+  font-family: 'Consolas', monospace;
+}
+
+.arrow-connector {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 50px;
+  color: var(--text-secondary);
+  opacity: 0.5;
+}
+
+/* Detail Rows inside Step */
+.detail-row {
+  display: flex;
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+  justify-content: flex-start;
+  text-align: left;
+}
+.label { width: 80px; color: var(--text-secondary); flex-shrink: 0; }
+.value { color: var(--text-primary); }
+
+/* Proof Box */
+.proof-box {
+  margin-top: 1rem;
+  background: rgba(234, 179, 8, 0.1);
+  border: 1px solid var(--warning);
+  color: var(--warning);
+  padding: 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center; /* Centrat mesajul de eroare */
+  gap: 0.5rem;
+}
+
+/* Final Answer Box */
+.final-box {
+  background: rgba(56, 189, 248, 0.05);
+  border: 1px solid var(--accent);
+}
+
+/* Tables (Crypto & Signatures) */
+.full-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.full-table th {
+  text-align: left;
+  padding: 1.2rem;
+  background: var(--bg-dark);
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.full-table td {
+  padding: 1.2rem;
+  border-bottom: 1px solid var(--border);
+  font-family: 'Consolas', monospace;
+  font-size: 0.95rem;
+}
+
+.full-table tr:last-child td { border-bottom: none; }
+
+/* Status Colors */
+.status-ok { color: var(--success); font-weight: bold; }
+.status-err { color: var(--danger); font-weight: bold; }
+.status-warn { color: var(--warning); font-weight: bold; }
+
+/* --- SCENARIOS (QUICK START) --- */
+.scenarios-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 3rem;
+  width: 100%;
+}
+
+.scenario-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.scenario-card:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.2);
+}
+
+.sc-secure { border-color: rgba(34, 197, 94, 0.3); }
+.sc-secure:hover { background: rgba(34, 197, 94, 0.05); border-color: var(--success); }
+.sc-secure .sc-icon { color: var(--success); }
+
+.sc-broken { border-color: rgba(239, 68, 68, 0.3); }
+.sc-broken:hover { background: rgba(239, 68, 68, 0.05); border-color: var(--danger); }
+.sc-broken .sc-icon { color: var(--danger); }
+
+.sc-insecure { border-color: rgba(234, 179, 8, 0.3); }
+.sc-insecure:hover { background: rgba(234, 179, 8, 0.05); border-color: var(--warning); }
+.sc-insecure .sc-icon { color: var(--warning); }
+
+.sc-title { font-weight: 700; font-size: 0.9rem; display: flex; align-items: center; gap: 8px; color: var(--text-primary); }
+.sc-domain { font-family: monospace; font-size: 0.85rem; color: var(--text-secondary); }
+
+/* Mobile responsive */
+@media (max-width: 600px) {
+  .scenarios-grid { grid-template-columns: 1fr; }
+}
