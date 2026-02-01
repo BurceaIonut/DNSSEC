@@ -1,6 +1,4 @@
 
-
-
 # DNSSEC Inspector
 
 DNSSEC Inspector este un tool care analizeaza un domeniu din perspectiva DNSSEC si genereaza un raport JSON care explica de ce un domeniu este:
@@ -21,9 +19,12 @@ DNS transforma un nume de domeniu intr-o adresa IP. DNSSEC adauga mecanisme crip
 
 Tool-ul face rezolvare iterativa (pornind de la root) si construieste lantul de delegare pe baza relatiei DS (din parinte) ↔ DNSKEY (din copil).
 
-## 2\) RRSIG (semnaturi)
+## 2\) Analiză RRSIG (semnaturi)
 
-Tool-ul colecteaza metadate RRSIG: algorithm, keyTag, signer, inception, expiration (utile pentru validare completa ulterioara).
+Tool-ul colecteaza metadate RRSIG(utile pentru validare completa ulterioara):
+* `Algorithm` & `KeyTag`
+* `Signer Name`
+* `Inception` & `Expiration`
 
 ## 3\) Expirare
 
@@ -33,9 +34,8 @@ Metadatele inception/expiration permit marcarea semnaturilor expirate sau care e
 
 Tool-ul poate marca hopuri problematice, de exemplu:
 
-\- DS exista, dar nu se potriveste cu nicio DNSKEY (DS\_MISMATCH),
-
-\- DS exista, dar zona copil nu publica DNSKEY (NO\_DNSKEY\_IN\_CHILD).
+* **DS_MISMATCH**: DS există în părinte, dar nu se potrivește cu nicio cheie (DNSKEY) din zona copil.
+* **NO_DNSKEY_IN_CHILD**: DS există, dar zona copil nu publică nicio cheie publică.
 
 ## 5\) Algoritmi slabi
 
@@ -62,27 +62,43 @@ Aceste IP-uri din Additional sunt folosite ca bootstrap pentru a continua rezolv
 Daca parintele nu publica DS pentru copil, DNSSEC poate furniza dovezi semnate de non-existenta folosind NSEC/NSEC3 + RRSIG. Se salveaza aceste dovezi in dsDenialProof pentru hop-ul respectiv.
 
 # Instalare
+## 1. Cerinte de sistem
+* **Python 3.10+**
+* **Node.js & npm v18+**
+## 2. Instalare Dependențe
+```pip install -r DNSSEC\requirements.txt```
+## 3. API Server
+```python DNSSEC\server.py```
+## 4. Frontend
+```cd DNSSEC\dnssec-dashboard ```
+```npm install```
+```npm run dev```
+Pagina expusa:http://localhost:5173
 
-## Cerinte
+# Moduri de Utilizare
+## A. Interfața Grafică (GUI).
+Introduceți domeniul și selectați tipul de înregistrare DNS pentru a genera raportul, sau puteți selecta unul din cele 3 scenarii de test.
 
-\- Python 3.10+ recomandat
+## B. Linia de Comandă (CLI)
+Ideal pentru utilizare avansată, debugging, automatizare sau export JSON.
 
-\- dependinta principala: dnspython
+Sintaxă: ```python cli.py <domeniu> [optiuni]```
 
-\- se recomandă rularea python inspector.py dintr-un mediu virtualizat python
+<domeniu>,      Domeniul țintă de analizat
+[optiuni],
+"-t, --type",   Tipul de înregistrare DNS
+"-f, --format", Formatul output-ului (text sau json)
+"-o, --output", Salvează rezultatul într-un fișier
 
-Exemplu de utilizare: google.com (non-DNSSEC), cloudflare.com (DNSSEC)
+### Exemple CLI:
+Verificare standard:    
+```python cli.py google.com```
 
-#  Rulare Interfață Grafică (GUI)
-python gui.py
+Verificare servere de nume (NS) cu export JSON: 
+```python cli.py cloudflare.com --type NS --format json```
 
-#  Rulare în Linia de Comandă (CLI)
-Pentru utilizare avansată, automatizare sau export JSON.
-
-python cli.py <domeniu> [--type TIP] [--format json|text]
-
-ex. python cli.py google.com --type MX --format json
-
+Salvare raport într-un fișier:
+```python cli.py sigfail.verteiltesysteme.net --output error_log.txt```
 
 # Structura raportului
 

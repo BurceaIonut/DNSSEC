@@ -1,3 +1,8 @@
-pip install dnspython>=2.9
-pip install cryptography
-pip install customtkinter
+dnspython>=2.6.1
+
+customtkinter>=5.2.2
+darkdetect>=0.8.0
+packaging>=23.2
+
+Flask>=3.0.0
+flask-cors>=4.0.0
