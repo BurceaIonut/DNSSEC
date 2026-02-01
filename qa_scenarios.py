@@ -2,7 +2,6 @@ from inspector import DnssecChainCollector
 from cli import ReportGenerator
 import sys
 
-# Lista de domenii pentru QA (Corpus)
 SCENARIOS = [
     {
         "domain": "ietf.org", 
@@ -17,7 +16,7 @@ SCENARIOS = [
     {
         "domain": "cnn.com", 
         "expected": "INSECURE_DELEGATION", 
-        "desc": "Domeniu mare, dar nesemnat (sau TLD nesemnat)"
+        "desc": "Domeniu nesemnat (sau TLD nesemnat)"
     },
     {
         "domain": "sigfail.verteiltesysteme.net",
@@ -27,7 +26,7 @@ SCENARIOS = [
 ]
 
 def run_qa():
-    print("🧪 Starting QA / Demo Suite...\n")
+    print("Starting QA / Demo Suite...\n")
     collector = DnssecChainCollector(timeoutSeconds=2.0)
     
     results = []

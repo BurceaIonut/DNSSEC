@@ -4,10 +4,8 @@ import json
 import time
 from dataclasses import asdict
 
-# Importăm logica lui Ionuț
 from inspector import DnssecChainCollector, InspectorTrace
 
-# --- MODUL: Explain Like I'm Human ---
 EXPLANATIONS = {
     "SECURE_CHAIN_CANDIDATE": {
         "text": "SECURE (LANȚ SECURIZAT)",
@@ -49,7 +47,6 @@ class ReportGenerator:
         
         result = [border_top]
         for line in lines:
-            # Trunchiem linia dacă e prea lungă, adăugăm padding
             stripped = line[:width-4]
             result.append(f"║ {stripped:<{width-4}} ║")
         result.append(border_bottom)
@@ -57,7 +54,7 @@ class ReportGenerator:
 
     @staticmethod
     def to_markdown(trace: InspectorTrace):
-        """Generează raportul Human-Readable (Dashboard Style)."""
+        """Generează raportul."""
         verdict_info = ReportGenerator.get_explanation(trace.chainVerdict)
         
         # Selectăm iconița
@@ -86,25 +83,24 @@ class ReportGenerator:
         output.append("\n")
 
         # --- 2. FINAL DATA (Răspunsul DNS) ---
-        output.append(f"🎯 0. DATE PRIMITE (Answer Section - {trace.targetType})")
+        output.append(f" 0. DATE PRIMITE (Answer Section - {trace.targetType})")
         output.append("-" * 70)
         if not trace.finalAnswerRrsets:
              output.append(f"   [!] Niciun răspuns de tip {trace.targetType} (NODATA) sau eroare.")
         else:
              for rrset_text in trace.finalAnswerRrsets:
-                 # Formatează frumos datele brute
-                 output.append(f"   ➤ {rrset_text}")
+                 output.append(f"   > {rrset_text}")
         output.append("\n")
 
         # --- 3. CHAIN OF TRUST ---
-        output.append("🔗 1. LANȚUL DE ÎNCREDERE (Chain of Trust)")
+        output.append(" 1. LANȚUL DE ÎNCREDERE (Chain of Trust)")
         output.append("-" * 70)
         if not trace.delegationChain:
             output.append("   [!] Niciun lanț de delegare detectat.")
         
         for i, link in enumerate(trace.delegationChain, 1):
             status_icon = "✅ OK" if link.status == "OK" else "❌ FAIL"
-            arrow = "  ⬇" if i < len(trace.delegationChain) else "  🎯"
+            arrow = "  ⌄" if i < len(trace.delegationChain) else "  "
             
             output.append(f"   [{i}] Zona: {link.parentZone:<25} ->  Copil: {link.childZone}")
             output.append(f"       Status: {status_icon:<10} | Detalii: {link.details}")
@@ -113,15 +109,14 @@ class ReportGenerator:
             output.append(arrow)
 
         if trace.chainBreakAt:
-             output.append(f"\n   🛑 LANȚUL S-A RUPT LA: {trace.chainBreakAt}")
+             output.append(f"\n   ❌ LANȚUL S-A RUPT LA: {trace.chainBreakAt}")
 
         output.append("\n")
 
         # --- 4. ALGORITHMS (Tabel) ---
-        output.append("🛡️  2. IGIENA CRIPTOGRAFICĂ (Algorithms & Digests)")
+        output.append("  2. IGIENA CRIPTOGRAFICĂ (Algorithms & Digests)")
         output.append("-" * 70)
         
-        # Header tabel
         output.append(f"   {'SCOPE (Zona)':<30} | {'ID':<5} | {'VERDICT':<10} | {'NOTES'}")
         output.append("   " + "-"*30 + "+-------+------------+-------------------")
         
@@ -137,13 +132,11 @@ class ReportGenerator:
         output.append("\n")
 
         # --- 5. SIGNATURES (Grouped) ---
-        output.append("✍️  3. VALIDARE SEMNĂTURI (RRSIG)")
+        output.append("  3. VALIDARE SEMNĂTURI (RRSIG)")
         output.append("-" * 70)
         
-        # Filtrăm doar problemele
         issues = [s for s in trace.signatureChecks if s.timeStatus != "OK" or s.cryptoStatus == "BOGUS"]
         
-        # Separăm erorile "reale" de cele "lipsă cheie" (care sunt normale la scanare rapidă)
         real_errors = [s for s in issues if s.cryptoStatus == "BOGUS" or s.timeStatus == "EXPIRED"]
         optimize_info = [s for s in issues if s.failureReason in ("NO_DNSKEY", "NO_RRSIG")]
 
@@ -151,7 +144,7 @@ class ReportGenerator:
             output.append("   ✅ Toate semnăturile verificate sunt VALIDE.")
         else:
             if real_errors:
-                output.append("   🛑 ERORI CRITICE (Semnături invalide/expirate):")
+                output.append("   ❌ ERORI CRITICE (Semnături invalide/expirate):")
                 for sig in real_errors:
                      output.append(f"      ❌ {sig.owner} ({sig.rrtype}): {sig.failureReason} (Time: {sig.timeStatus})")
             
@@ -159,10 +152,10 @@ class ReportGenerator:
                 output.append(f"\n   ⚠️  INFO: {len(optimize_info)} semnături nu au putut fi verificate complet")
                 output.append("       (Motiv: Lipsă cheie publică pentru resurse externe - Optimizare viteză).")
                 output.append("       Exemple:")
-                # Arătăm doar primele 3 ca să nu umplem ecranul
+
                 for sig in optimize_info[:3]:
                     reason = sig.failureReason if sig.failureReason else "INDETERMINATE"
-                    output.append(f"      🔸 {sig.owner:<30} ({sig.rrtype}): {reason}")
+                    output.append(f"      * {sig.owner:<30} ({sig.rrtype}): {reason}")
                 if len(optimize_info) > 3:
                     output.append(f"      ... și alte {len(optimize_info)-3}.")
 
