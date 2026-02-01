@@ -3,39 +3,32 @@ import threading
 from inspector import DnssecChainCollector
 from cli import ReportGenerator
 
-# --- CONFIGURARE ASPECT PROFESIONAL ---
+
 ctk.set_appearance_mode("Dark")
-# Folosim o temă personalizată de culori (albastru mai închis, mai 'cyber')
 accent_color = "#1f538d" 
 hover_color = "#14375e"
-bg_card = "#2b2b2b" # O idee mai deschis decât fundalul negru
-text_console = "#E0E0E0" # Alb murdar pentru textul lung
+bg_card = "#2b2b2b" 
+text_console = "#E0E0E0" 
 
 class DnssecApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        # 1. Configurare Fereastră Principală
-        self.title("DNSSEC Q.R.F. Inspector | Team 3")
+        self.title("DNSSEC Q.R.F. Inspector")
         self.geometry("1100x850")
         self.minsize(900, 700)
 
-        # Grid principal: 1 coloană, 3 rânduri (Header, Controls, Results)
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(2, weight=1) # Rândul cu rezultate se extinde
+        self.grid_rowconfigure(2, weight=1) 
 
-        # Definim fonturi reutilizabile
         self.font_header = ctk.CTkFont(family="Roboto", size=22, weight="bold")
         self.font_label = ctk.CTkFont(family="Roboto", size=14)
-        self.font_console = ctk.CTkFont(family="Consolas", size=15) # Monospaced pt aliniere
+        self.font_console = ctk.CTkFont(family="Consolas", size=15) 
 
-        # --- SECȚIUNEA 1: TOP NAVBAR ---
         self.setup_navbar()
 
-        # --- SECȚIUNEA 2: CONTROL PANEL (Card style) ---
         self.setup_control_panel()
 
-        # --- SECȚIUNEA 3: RESULTS CONSOLE (Card style) ---
         self.setup_results_console()
 
 
@@ -43,26 +36,22 @@ class DnssecApp(ctk.CTk):
         self.navbar_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         self.navbar_frame.grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 10))
         
-        # Logo/Titlu cu iconiță scut
         self.label_logo = ctk.CTkLabel(self.navbar_frame, text="🛡️ DNSSEC INSPECTOR", font=self.font_header, text_color="white")
         self.label_logo.pack(side="left")
         
-        # Subtitlu
-        self.label_sub = ctk.CTkLabel(self.navbar_frame, text=" // Quick Reaction Force Tool", font=self.font_label, text_color="gray")
+        self.label_sub = ctk.CTkLabel(self.navbar_frame, text=" Quick Reaction Force Tool", font=self.font_label, text_color="gray")
         self.label_sub.pack(side="left", padx=10, pady=(5,0))
 
     def setup_control_panel(self):
         self.control_frame = ctk.CTkFrame(self, corner_radius=10, fg_color=bg_card)
         self.control_frame.grid(row=1, column=0, sticky="ew", padx=20, pady=10)
 
-        # Labels pentru input-uri
         lbl_domain = ctk.CTkLabel(self.control_frame, text="Target Domain:", font=self.font_label, text_color="silver")
         lbl_domain.grid(row=0, column=0, padx=20, pady=(15, 0), sticky="w")
 
         lbl_type = ctk.CTkLabel(self.control_frame, text="Record Type:", font=self.font_label, text_color="silver")
         lbl_type.grid(row=0, column=1, padx=20, pady=(15, 0), sticky="w")
 
-        # Input fields
         self.entry_domain = ctk.CTkEntry(self.control_frame, placeholder_text="e.g., ietf.org", width=400, height=35, font=self.font_label)
         self.entry_domain.grid(row=1, column=0, padx=20, pady=(5, 20))
 
@@ -70,7 +59,6 @@ class DnssecApp(ctk.CTk):
                                              font=self.font_label, fg_color=accent_color, button_hover_color=hover_color)
         self.option_type.grid(row=1, column=1, padx=20, pady=(5, 20))
 
-        # Action Button (Mare și vizibil)
         self.btn_scan = ctk.CTkButton(self.control_frame, text="RUN INSPECTION 🔍", command=self.start_scan_thread, 
                                       width=200, height=45, font=ctk.CTkFont(size=16, weight="bold"),
                                       fg_color=accent_color, hover_color=hover_color)
@@ -82,14 +70,12 @@ class DnssecApp(ctk.CTk):
         self.results_frame.grid_columnconfigure(0, weight=1)
         self.results_frame.grid_rowconfigure(1, weight=1)
 
-        # Header-ul consolei (Status bar integrat)
         self.status_bar = ctk.CTkFrame(self.results_frame, height=40, corner_radius=10, fg_color="#3a3a3a")
         self.status_bar.grid(row=0, column=0, sticky="ew", padx=5, pady=5)
         
         self.status_label = ctk.CTkLabel(self.status_bar, text="STATUS: READY. Waiting for input.", font=self.font_label, text_color="white")
         self.status_label.pack(side="left", padx=15)
 
-        # Textbox-ul principal (Consola)
         self.textbox = ctk.CTkTextbox(self.results_frame, font=self.font_console, text_color=text_console, 
                                       fg_color=bg_card, border_width=0, corner_radius=5)
         self.textbox.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
@@ -99,22 +85,20 @@ class DnssecApp(ctk.CTk):
             "  ----------------------------------------\n"
             "  This tool analyzes the Chain of Trust, Crypto Hygiene, and Signatures.\n\n"
             "  Quick Start Scenarios:\n"
-            "  👉 Test Secure Domain:   ietf.org\n"
-            "  👉 Test Broken Domain:   dnssec-failed.org\n"
-            "  👉 Test Insecure Domain: cnn.com\n"
+            "       *Test Secure Domain:   ietf.org\n"
+            "       *Test Broken Domain:   dnssec-failed.org\n"
+            "       *Test Insecure Domain: cnn.com\n"
         )
         self.textbox.insert("0.0", intro_text)
         self.textbox.configure(state="disabled")
 
-    # --- LOGICA DE SCANARE (Identică cu versiunea anterioară) ---
     def start_scan_thread(self):
         domain = self.entry_domain.get()
         if not domain: return
         
         self.btn_scan.configure(state="disabled", text="SCANNING IN PROGRESS...")
-        # Update status bar visual
         self.status_bar.configure(fg_color=accent_color)
-        self.status_label.configure(text=f"STATUS: ⏳ Inspecting network for: {domain}...")
+        self.status_label.configure(text=f"STATUS: Inspecting network for: {domain}...")
         
         self.textbox.configure(state="normal")
         self.textbox.delete("0.0", "end")
@@ -137,7 +121,7 @@ class DnssecApp(ctk.CTk):
         self.textbox.configure(state="normal")
         self.textbox.insert("end", f"\n\n❌ SYSTEM ERROR:\n{error_msg}")
         self.textbox.configure(state="disabled")
-        self.status_label.configure(text="STATUS: 🛑 ERROR OCCURRED")
+        self.status_label.configure(text="STATUS: ❌ ERROR OCCURRED")
         self.status_bar.configure(fg_color="#c62828")
         self.btn_scan.configure(state="normal", text="RUN INSPECTION 🔍")
 
@@ -145,20 +129,19 @@ class DnssecApp(ctk.CTk):
         self.textbox.configure(state="normal")
         self.textbox.delete("0.0", "end")
         self.textbox.insert("0.0", report_text)
-        self.apply_color_tags() # Aplicăm culorile pe text
+        self.apply_color_tags() 
 
-        # Update Status Bar based on verdict
-        status_color = "#424242" # Default gray
+        status_color = "#424242" 
         status_text = f"STATUS: DONE. Verdict: {verdict}"
 
         if "SECURE" in verdict:
-            status_color = "#2e7d32" # Dark Green
+            status_color = "#2e7d32" 
             status_text = f"STATUS: ✅ SECURE CHAIN CONFIRMED ({verdict})"
         elif "BOGUS" in verdict or "BROKEN" in verdict or "MISMATCH" in verdict:
-            status_color = "#c62828" # Dark Red
-            status_text = f"STATUS: 🛑 SECURITY FAILURE DETECTED ({verdict})"
+            status_color = "#c62828" 
+            status_text = f"STATUS: ❌ SECURITY FAILURE DETECTED ({verdict})"
         elif "INSECURE" in verdict:
-            status_color = "#f57f17" # Dark Orange/Yellow
+            status_color = "#f57f17" 
             status_text = f"STATUS: ⚠️ DELEGATION INSECURE ({verdict})"
 
         self.status_bar.configure(fg_color=status_color)
@@ -167,9 +150,7 @@ class DnssecApp(ctk.CTk):
         self.textbox.configure(state="disabled")
 
     def apply_color_tags(self):
-        """Funcția de colorare a textului (aceeași logică, culori puțin ajustate)"""
         tb = self.textbox._textbox
-        # Culori neon/cyber
         tb.tag_config("green", foreground="#00ff9f")
         tb.tag_config("red", foreground="#ff3860")
         tb.tag_config("yellow", foreground="#ffd700")
@@ -193,12 +174,10 @@ class DnssecApp(ctk.CTk):
                 self.textbox.tag_add(tag, pos, end)
                 start = end
 
-        # Highlight special pentru cutia de verdict (Liniile cu ═══)
         start = "1.0"
         while True:
             pos = self.textbox.search("╔", start, stopindex="end")
             if not pos: break
-            # Găsim sfârșitul cutiei
             end_box = self.textbox.search("╝", pos, stopindex="end")
             if end_box:
                 self.textbox.tag_add("green", pos, f"{end_box}+1c")
