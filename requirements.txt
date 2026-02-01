@@ -1,2 +1,3 @@
 pip install dnspython>=2.9
 pip install cryptography
+pip install customtkinter
