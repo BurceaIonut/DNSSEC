@@ -27,7 +27,7 @@ SCENARIOS = [
 ]
 
 def run_qa():
-    print("🧪 Starting QA / Demo Suite...\n")
+    print("Starting QA / Demo Suite...\n")
     collector = DnssecChainCollector(timeoutSeconds=2.0)
     
     results = []

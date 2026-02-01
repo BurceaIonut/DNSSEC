@@ -73,15 +73,15 @@ Daca parintele nu publica DS pentru copil, DNSSEC poate furniza dovezi semnate d
 
 Exemplu de utilizare: google.com (non-DNSSEC), cloudflare.com (DNSSEC)
 
-##  Rulare Interfață Grafică (GUI)
+#  Rulare Interfață Grafică (GUI)
 python gui.py
 
-## Rulare în Linia de Comandă (CLI)
+#  Rulare în Linia de Comandă (CLI)
 Pentru utilizare avansată, automatizare sau export JSON.
+
 python cli.py <domeniu> [--type TIP] [--format json|text]
 
 ex. python cli.py google.com --type MX --format json
-
 
 
 # Structura raportului
