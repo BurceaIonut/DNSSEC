@@ -1,3 +1,6 @@
+
+
+
 # DNSSEC Inspector
 
 DNSSEC Inspector este un tool care analizeaza un domeniu din perspectiva DNSSEC si genereaza un raport JSON care explica de ce un domeniu este:
@@ -69,6 +72,17 @@ Daca parintele nu publica DS pentru copil, DNSSEC poate furniza dovezi semnate d
 \- se recomandă rularea python inspector.py dintr-un mediu virtualizat python
 
 Exemplu de utilizare: google.com (non-DNSSEC), cloudflare.com (DNSSEC)
+
+##  Rulare Interfață Grafică (GUI)
+python gui.py
+
+## Rulare în Linia de Comandă (CLI)
+Pentru utilizare avansată, automatizare sau export JSON.
+python cli.py <domeniu> [--type TIP] [--format json|text]
+
+ex. python cli.py google.com --type MX --format json
+
+
 
 # Structura raportului
 
