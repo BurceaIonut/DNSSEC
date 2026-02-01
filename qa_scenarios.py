@@ -6,22 +6,22 @@ SCENARIOS = [
     {
         "domain": "ietf.org", 
         "expected": "SECURE_CHAIN_CANDIDATE", 
-        "desc": "Domeniu standard, semnat corect"
+        "desc": "Standard domain, signature valid"
     },
     {
         "domain": "dnssec-failed.org", 
         "expected": "BROKEN_CHAIN", 
-        "desc": "Domeniu configurat intenționat să eșueze (Bogus)"
+        "desc": "Domain configured to fail (Bogus)"
     },
     {
         "domain": "cnn.com", 
         "expected": "INSECURE_DELEGATION", 
-        "desc": "Domeniu nesemnat (sau TLD nesemnat)"
+        "desc": "Unsigned domain  (or unsigned TLD)"
     },
     {
         "domain": "sigfail.verteiltesysteme.net",
         "expected": "BROKEN_CHAIN",
-        "desc": "Test case clasic pentru semnături invalide"
+        "desc": "Invalid signatures"
     }
 ]
 
@@ -37,7 +37,7 @@ def run_qa():
         
         trace = collector.inspectDomain(case['domain'], "A")
         
-        status = "✅ PASS" if trace.chainVerdict == case['expected'] else f"❌ FAIL (Got {trace.chainVerdict})"
+        status = "[OK] PASS" if trace.chainVerdict == case['expected'] else f"[XX] FAIL (Got {trace.chainVerdict})"
         print(status)
         
         results.append({
@@ -55,3 +55,4 @@ def run_qa():
 
 if __name__ == "__main__":
     run_qa()
+
